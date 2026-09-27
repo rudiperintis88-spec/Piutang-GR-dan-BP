@@ -40,6 +40,8 @@
   .divisi-tab .badge{display:block;font-size:11px;font-weight:600;color:var(--muted-2);margin-top:2px;}
   .divisi-tab.active{background:var(--panel);color:var(--ink);border-bottom:1px solid var(--panel);}
   .divisi-tab.active .badge{color:var(--blue);}
+  .divisi-tab-all{font-weight:700;}
+  .divisi-tab-all:not(.active){border-color:var(--blue);color:var(--blue);}
   #divisiPanel{margin-top:20px;}
 
   .total-card{
@@ -298,6 +300,7 @@ function processRows(rows) {
   Object.keys(byDivisi).forEach(function(name){
     divisions[name] = groupDebtors(byDivisi[name]);
   });
+  divisions['Semua Cabang'] = groupDebtors(dataRows);
 
   return { grand_total: grandTotal, grand_count: dataRows.length, report_title: reportTitle, divisions: divisions };
 }
@@ -449,12 +452,15 @@ function renderDivisiPanel(){
 }
 function renderDivisiTabs(){
   var tabsEl = document.getElementById('divisiTabs');
-  var names = Object.keys(lastData.divisions).sort((a,b) => lastData.divisions[b].total - lastData.divisions[a].total);
+  var ALL_KEY = 'Semua Cabang';
+  var names = Object.keys(lastData.divisions).filter(n => n !== ALL_KEY).sort((a,b) => lastData.divisions[b].total - lastData.divisions[a].total);
+  if (lastData.divisions[ALL_KEY]) names.unshift(ALL_KEY);
   if (!currentDivisi || !lastData.divisions[currentDivisi]) currentDivisi = names[0];
   var html = '';
   names.forEach(name => {
     var d = lastData.divisions[name];
-    html += `<button class="divisi-tab${name === currentDivisi ? ' active' : ''}" data-divisi="${escapeHtml(name)}">${escapeHtml(name)}<span class="badge">${rupiah(d.total)}</span></button>`;
+    var extraClass = (name === ALL_KEY) ? ' divisi-tab-all' : '';
+    html += `<button class="divisi-tab${extraClass}${name === currentDivisi ? ' active' : ''}" data-divisi="${escapeHtml(name)}">${escapeHtml(name)}<span class="badge">${rupiah(d.total)}</span></button>`;
   });
   tabsEl.innerHTML = html;
   tabsEl.style.display = 'flex';
