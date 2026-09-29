@@ -155,6 +155,7 @@
       <button class="tab-btn active" data-tab="debitur">Per Debitur</button>
       <button class="tab-btn" data-tab="kategori">Per Kategori</button>
       <button class="tab-btn" data-tab="penagihan">Penagihan Piutang</button>
+      <button class="tab-btn" data-tab="prioritas">Prioritas Tagihan</button>
     </div>
     <div id="content"></div>
   </div>
@@ -539,6 +540,47 @@ function renderPenagihanTab(dd){
   wireContentHandlers();
 }
 
+var priBucket = 'b4', priCab = 'all', priKat = 'all', priDeb = 'all';
+function renderPrioritasTab(dd){
+  var uniq = function(k){ return Object.keys(dd.invs.reduce(function(m, i){ m[i[k]] = 1; return m; }, {})).sort(); };
+  var kats = uniq('kategori'), debs = uniq('nama'), cabSet = dd.invs.reduce(function(m, i){ m[i.divisi] = 1; return m; }, {});
+  var cabs = DIVISI_ORDER.filter(function(n){ return cabSet[n]; }).concat(Object.keys(cabSet).filter(function(n){ return DIVISI_ORDER.indexOf(n) < 0; }).sort());
+  if (cabs.indexOf(priCab) < 0) priCab = 'all';
+  if (kats.indexOf(priKat) < 0) priKat = 'all';
+  if (debs.indexOf(priDeb) < 0) priDeb = 'all';
+  var R = { all: [-1e9, 1e9], b1: [1, 7], b2: [8, 14], b3: [15, 26], b4: [27, 1e9] }[priBucket];
+  var list = dd.invs.filter(function(i){
+    var h = parseInt(i.hari, 10); if (isNaN(h)) h = 0;
+    if (priBucket !== 'all' && (h < R[0] || h > R[1])) return false;
+    if (priCab !== 'all' && i.divisi !== priCab) return false;
+    if (priKat !== 'all' && i.kategori !== priKat) return false;
+    return priDeb === 'all' || i.nama === priDeb;
+  });
+  var total = 0; list.forEach(function(i){ total += i.jumlah; });
+  var css = 'padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--ink);font-size:13.5px;';
+  var opt = function(arr, cur, allLabel){
+    return '<option value="all"' + (cur === 'all' ? ' selected' : '') + '>' + allLabel + '</option>' +
+      arr.map(function(v){ return '<option value="' + escapeHtml(v) + '"' + (v === cur ? ' selected' : '') + '>' + escapeHtml(v) + '</option>'; }).join('');
+  };
+  var hariOpts = [['all','Semua umur'],['b1','1-7 hari'],['b2','8-14 hari'],['b3','15-26 hari'],['b4','> 26 hari']].map(function(o){
+    return '<option value="' + o[0] + '"' + (o[0] === priBucket ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
+  var rows = '';
+  sortInvoices(list).forEach(function(i, n){
+    rows += '<tr><td class="num">' + (n + 1) + '</td><td>' + escapeHtml(i.faktur) + '</td><td>' + escapeHtml(i.nama) + '</td><td>' + escapeHtml(i.tgljto) +
+      '</td><td>' + escapeHtml(i.nopol || '-') + '</td><td>' + escapeHtml(i.sa) + '</td><td class="num">' + escapeHtml(String(i.hari || '-')) + '</td><td class="num">' + rupiah(i.jumlah) + '</td></tr>';
+  });
+  if (!list.length) rows = '<tr><td colspan="8" class="loading">Tidak ada faktur yang cocok.</td></tr>';
+  document.getElementById('content').innerHTML =
+    '<div class="search-bar" style="display:flex;gap:10px;flex-wrap:wrap;"><select id="priBucket" style="' + css + '">' + hariOpts + '</select>' +
+    (FIXED_DIVISI ? '' : '<select id="priCab" style="' + css + '">' + opt(cabs, priCab, 'Semua cabang') + '</select>') +
+    '<select id="priKat" style="' + css + '">' + opt(kats, priKat, 'Semua kategori') + '</select>' +
+    '<select id="priDeb" style="' + css + 'max-width:280px;">' + opt(debs, priDeb, 'Semua debitur') + '</select></div>' +
+    '<div class="bar-title">Prioritas tagihan &middot; ' + numId(list.length) + ' faktur &middot; ' + rupiah(total) + '</div>' +
+    '<div class="debtor" style="padding:6px 16px 12px;"><div class="table-scroll"><table><thead><tr>' + thS('no','No','num') + thS('faktur','No Faktur') + thS('nama','Debitur') +
+    thS('tgljto','Tgl Jto') + thS('nopol','No Polisi') + thS('sa','SA') + thS('hari','Hari','num') + thS('jumlah','Jumlah','num') + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  wireContentHandlers();
+}
+
 function wireContentHandlers() {
   var s = document.getElementById('search');
   if (s) {
@@ -552,7 +594,7 @@ function wireContentHandlers() {
       renderContent();
     });
   });
-  var pf = { penBucket: v => { penBucket = v; }, penCab: v => { penCab = v; }, penKat: v => { penKat = v; }, penDeb: v => { penDeb = v; } };
+  var pf = { priBucket: v => { priBucket = v; }, priCab: v => { priCab = v; }, priKat: v => { priKat = v; }, priDeb: v => { priDeb = v; }, penBucket: v => { penBucket = v; }, penCab: v => { penCab = v; }, penKat: v => { penKat = v; }, penDeb: v => { penDeb = v; } };
   Object.keys(pf).forEach(id => { var el = document.getElementById(id); if (el) el.addEventListener('change', e => { pf[id](e.target.value); renderContent(); }); });
   document.querySelectorAll('[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
@@ -582,6 +624,7 @@ function renderContent(){
   var ss = typing ? a.selectionStart : 0, se = typing ? a.selectionEnd : 0;
   if (currentTab === 'debitur') renderDebiturTab(dd.debtors);
   else if (currentTab === 'penagihan') renderPenagihanTab(dd);
+  else if (currentTab === 'prioritas') renderPrioritasTab(dd);
   else renderKategoriTab(dd);
   if (typing) { var s = document.getElementById('search'); if (s) { s.focus(); s.setSelectionRange(ss, se); } }
 }
@@ -610,7 +653,7 @@ function renderDivisiTabs(){
   tabsEl.querySelectorAll('.divisi-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       currentDivisi = btn.getAttribute('data-divisi');
-      searchQuery = ''; openDebtorKeys = {}; openCabangKeys = {}; penCab = 'all'; penKat = 'all'; penDeb = 'all';
+      searchQuery = ''; openDebtorKeys = {}; openCabangKeys = {}; penCab = 'all'; penKat = 'all'; penDeb = 'all'; priCab = 'all'; priKat = 'all'; priDeb = 'all';
       tabsEl.querySelectorAll('.divisi-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderDivisiPanel();
