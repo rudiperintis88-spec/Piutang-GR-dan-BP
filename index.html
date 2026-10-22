@@ -43,12 +43,13 @@
 <div id="gate">
   <div class="gbox">
     <p class="t" style="text-align:center;margin:0 0 18px">Management</p>
+    <input type="text" id="gname" placeholder="Nama" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;text-align:center;background:var(--bg);color:var(--ink);margin-bottom:10px;box-sizing:border-box;">
     <div class="gwrap">
-      <input type="password" id="gpw" placeholder="Masukkan password" autofocus>
+      <input type="password" id="gpw" placeholder="Masukkan password">
       <button type="button" id="geye" aria-label="Tampilkan password"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
     </div>
     <button class="gsubmit" id="gsub">Masuk</button>
-    <p id="gerr">Password salah, coba lagi.</p>
+    <p id="gerr">Password salah. Coba lagi.</p>
   </div>
 </div>
 
@@ -81,21 +82,58 @@ function show(t){
 document.querySelectorAll('.maintab[data-t]').forEach(function(b){ b.addEventListener('click', function(){ show(b.dataset.t); }); });
 
 var PW = 'perintis2026', KEY = 'pg_login_ok';
+var CABANG_NAME = 'Dashboard Piutang Unit (Gabungan)';
+var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwbp9NpdaXOEzXBImJvcjReKK8BrQRuwrXy3Jtk89dFEc1LuepeKrF6f6utr2k2Hl5qDg/exec';
+var NAMA_KATA_TERLARANG = ["bpkb","gagak","hitam","gatsu","flamboyan","piutang","followup","follow","up","dashboard","cabang","cash","leasing","perintis","perkasa","test","tes","admin","nama","adam","malik","body","repair","otoxpert","material","management","unit","grbp"];
+function validName(v){
+  v = (v || '').trim();
+  if (!/^[A-Za-z.' -]+$/.test(v)) return false;
+  var words = v.split(/\s+/).filter(Boolean);
+  if (words.length < 2) return false;
+  var lower = v.toLowerCase();
+  for (var i = 0; i < NAMA_KATA_TERLARANG.length; i++) { if (lower.indexOf(NAMA_KATA_TERLARANG[i]) >= 0) return false; }
+  return true;
+}
+function _ambilPerangkat(){var ua=navigator.userAgent||'';var os='Tidak diketahui';if(/Windows/i.test(ua))os='Windows';else if(/Android/i.test(ua))os='Android';else if(/iPhone|iPad|iPod/i.test(ua))os='iOS';else if(/Macintosh|Mac OS/i.test(ua))os='Mac';else if(/Linux/i.test(ua))os='Linux';var br='Tidak diketahui';if(/Edg\//i.test(ua))br='Edge';else if(/OPR\//i.test(ua))br='Opera';else if(/Chrome\//i.test(ua)&&!/Chromium/i.test(ua))br='Chrome';else if(/Firefox\//i.test(ua))br='Firefox';else if(/Safari\//i.test(ua)&&!/Chrome/i.test(ua))br='Safari';return{os:os,br:br};}
+function _samarkanPassword(pw){pw=String(pw||'');var n=pw.length;if(!n)return '';if(n<=4)return pw[0]+'*'.repeat(n-1);return pw.slice(0,2)+'*'.repeat(n-4)+pw.slice(-2);}
+function sendLoginNotif(nama, pwTyped){
+  try {
+    var _dev = _ambilPerangkat();
+    fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ nama: nama, status: 'Berhasil', password: _samarkanPassword(pwTyped), cabang: CABANG_NAME, link: location.href, perangkat: _dev.os, browser: _dev.br, waktu: new Date().toISOString() }) });
+  } catch (e) {}
+}
 function enter(){
   document.getElementById('gate').classList.add('hidden');
   var t = 'unit'; try { t = sessionStorage.getItem('ppp_main_tab') || 'unit'; } catch(e){}
   show(PAGES[t] ? t : 'unit');
 }
 function login(){
+  var nama = document.getElementById('gname').value.trim();
+  if (!nama) {
+    document.getElementById('gerr').textContent = 'Nama wajib diisi.';
+    document.getElementById('gerr').style.display = 'block';
+    document.getElementById('gname').focus();
+    return;
+  }
+  if (!validName(nama)) {
+    document.getElementById('gerr').textContent = 'Masukkan nama lengkap yang benar (minimal 2 kata).';
+    document.getElementById('gerr').style.display = 'block';
+    document.getElementById('gname').focus();
+    return;
+  }
   if (document.getElementById('gpw').value === PW) {
+    sendLoginNotif(nama, document.getElementById('gpw').value);
     enter();
   } else {
+    document.getElementById('gerr').textContent = 'Password salah. Coba lagi.';
     document.getElementById('gerr').style.display = 'block';
     document.getElementById('gpw').value = ''; document.getElementById('gpw').focus();
   }
 }
 document.getElementById('gsub').addEventListener('click', login);
+document.getElementById('gname').addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); document.getElementById('gpw').focus(); } });
 document.getElementById('gpw').addEventListener('keydown', function(e){ if (e.key === 'Enter') login(); });
+document.getElementById('gname').focus();
 document.getElementById('geye').addEventListener('click', function(){
   var i = document.getElementById('gpw'); i.type = i.type === 'password' ? 'text' : 'password'; i.focus();
 });
